@@ -9,4 +9,9 @@ export class AnimeController {
   getTopScore() {
     return this.animeService.get50ScoreDesc();
   }
+
+  @Get('/top50-popularity')
+  getTopPopularity() {
+    return this.animeService.get50PopularityDesc();
+  }
 }
