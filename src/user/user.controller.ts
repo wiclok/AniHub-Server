@@ -8,8 +8,8 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(@Req() req) {
-    return this.users.findOne(req.user.userId);
+  getProfile(@Req() req: { user: { userId: number } }) {
+    return this.users.findOne(Number(req.user.userId));
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,9 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
-import { MailerService } from 'src/mailer/mailer.service';
+import { MailerService } from '../mailer/mailer.service';
+
+interface GoogleUser {
+  email: string;
+  name: string;
+  picture: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -13,30 +19,28 @@ export class AuthService {
     private mailer: MailerService,
   ) {}
 
-  async handleGoogleLogin(googleUser: any) {
-  
-  const { email, name, picture } = googleUser;
+  async handleGoogleLogin(googleUser: GoogleUser) {
+    const { email, name, picture } = googleUser;
 
-  let user = await this.prisma.user.findUnique({ where: { email } });
+    let user = await this.prisma.user.findUnique({ where: { email } });
 
-  if (!user) {
-    user = await this.prisma.user.create({
-      data: {
-        email,
-        name,
-        verified: true,
-        avatar: picture,
-        password: null,
-        terms: true
-      },
-    });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name,
+          verified: true,
+          avatar: picture,
+          password: null,
+          terms: true,
+        },
+      });
+    }
+
+    const token = this.jwt.sign({ sub: user.id, email: user.email });
+
+    return { user, token };
   }
-
-  const token = this.jwt.sign({ sub: user.id, email: user.email });
-
-  return { user, token };
-}
-
 
   async register(name: string, email: string, password: string) {
     const existingUser = await this.prisma.user.findFirst({
@@ -69,9 +73,10 @@ export class AuthService {
     const verificationLink = `${process.env.API_URL}/auth/verify-email?token=${token}`;
     await this.mailer.sendEmailVerification(email, verificationLink);
 
-    return { message: 'Usuario creado. Revisa tu correo para verificar tu cuenta.' };
+    return {
+      message: 'Usuario creado. Revisa tu correo para verificar tu cuenta.',
+    };
   }
-
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -128,7 +133,9 @@ export class AuthService {
 
     if (verification.expiresAt < new Date()) {
       await this.prisma.verificationToken.delete({ where: { token } });
-      throw new BadRequestException('El token ha expirado. Solicita uno nuevo.');
+      throw new BadRequestException(
+        'El token ha expirado. Solicita uno nuevo.',
+      );
     }
 
     await this.prisma.user.update({

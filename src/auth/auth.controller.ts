@@ -13,7 +13,7 @@ import * as express from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './register.dto';
 import { LoginDto } from './login.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
@@ -25,13 +25,22 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() {
-  }
+  async googleAuth() {}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req: express.Request, @Res() res: express.Response) {
-    const user = req.user as any;
+  async googleAuthRedirect(
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    interface GoogleUser {
+      id: string;
+      email: string;
+      name: string;
+      picture: string;
+      // add other properties as needed
+    }
+    const user = req.user as GoogleUser;
 
     const { token } = await this.auth.handleGoogleLogin(user);
 
@@ -50,7 +59,11 @@ export class AuthController {
     if (dto.password !== dto.confirmPassword)
       throw new BadRequestException('Las contraseñas no coinciden');
 
-    const response = await this.auth.register(dto.name, dto.email, dto.password);
+    const response = await this.auth.register(
+      dto.name,
+      dto.email,
+      dto.password,
+    );
 
     return { message: response.message };
   }
@@ -86,7 +99,7 @@ export class AuthController {
   ) {
     if (!token) throw new BadRequestException('Token no proporcionado');
 
-    const { user, jwt } = await this.auth.verifyEmail(token);
+    const { jwt } = await this.auth.verifyEmail(token);
 
     const isProd = process.env.NODE_ENV === 'production';
 
@@ -98,7 +111,6 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-
     return res.redirect(`${process.env.APP_URL}/home`);
   }
 
@@ -109,7 +121,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({passthrough: true}) res: express.Response){
+  logout(@Res({ passthrough: true }) res: express.Response) {
     const isProd = process.env.NODE_ENV === 'production';
 
     res.clearCookie('jwt', {
@@ -117,8 +129,8 @@ export class AuthController {
       secure: isProd,
       sameSite: isProd ? 'none' : 'lax',
       path: '/',
-    })
+    });
 
-    return {message: 'Logout exitoso'}
+    return { message: 'Logout exitoso' };
   }
 }

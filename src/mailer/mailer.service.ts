@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import * as nodemailer from 'nodemailer'
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailerService {
@@ -30,7 +30,7 @@ export class MailerService {
       });
     } catch (error) {
       console.error('❌ Error al enviar el correo:', error);
-      throw new InternalServerErrorException('No se pudo enviar el correo')
+      throw new InternalServerErrorException('No se pudo enviar el correo');
     }
   }
 }
