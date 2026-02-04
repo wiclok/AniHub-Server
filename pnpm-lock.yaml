@@ -56,6 +56,9 @@ importers:
       prisma:
         specifier: ^6.18.0
         version: 6.18.0(typescript@5.9.3)
+      proyect-anime-backed:
+        specifier: 'link:'
+        version: 'link:'
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2

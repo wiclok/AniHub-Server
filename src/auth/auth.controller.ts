@@ -46,8 +46,8 @@ export class AuthController {
 
     res.cookie('jwt', token, {
       httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -77,8 +77,8 @@ export class AuthController {
 
     res.cookie('jwt', token, {
       httpOnly: true,
-      secure: false, // ✅ true solo en producción
-      sameSite: 'lax', // 'lax' para desarrollo
+      secure: true, // ✅ true solo en producción
+      sameSite: 'none', // 'none' para producción
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
     });
@@ -101,12 +101,12 @@ export class AuthController {
 
     const { jwt } = await this.auth.verifyEmail(token);
 
-    const isProd = process.env.NODE_ENV === 'production';
+    // const isProd = process.env.NODE_ENV === 'production';
 
     res.cookie('jwt', jwt, {
       httpOnly: true,
-      secure: isProd, // true en producción
-      sameSite: isProd ? 'none' : 'lax', // lax en desarrollo
+      secure: true, // true en producción
+      sameSite: 'none', // 'none' para producción
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -122,12 +122,12 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: express.Response) {
-    const isProd = process.env.NODE_ENV === 'production';
+    // const isProd = process.env.NODE_ENV === 'production';
 
     res.clearCookie('jwt', {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: true,
+      sameSite: 'none',
       path: '/',
     });
 
