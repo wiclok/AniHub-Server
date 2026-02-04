@@ -9,19 +9,18 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import * as express from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './register.dto';
 import { LoginDto } from './login.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuthGuard } from '@nestjs/passport';
+import { authCookieOptions } from './cookie.config';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private auth: AuthService,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private auth: AuthService) {}
+
+  // ─────────── GOOGLE ───────────
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
@@ -29,43 +28,31 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(
+  async googleCallback(
     @Req() req: express.Request,
     @Res() res: express.Response,
   ) {
-    interface GoogleUser {
-      id: string;
-      email: string;
-      name: string;
-      picture: string;
-      // add other properties as needed
+    if (!req.user) {
+      throw new BadRequestException('Usuario de Google no encontrado');
     }
-    const user = req.user as GoogleUser;
 
-    const { token } = await this.auth.handleGoogleLogin(user);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const { token } = await this.auth.handleGoogleLogin(req.user as any);
 
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('jwt', token, authCookieOptions());
 
     return res.redirect(`${process.env.APP_URL}/home`);
   }
 
+  // ─────────── AUTH NORMAL ───────────
+
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    if (dto.password !== dto.confirmPassword)
+    if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Las contraseñas no coinciden');
+    }
 
-    const response = await this.auth.register(
-      dto.name,
-      dto.email,
-      dto.password,
-    );
-
-    return { message: response.message };
+    return this.auth.register(dto.name, dto.email, dto.password);
   }
 
   @Post('login')
@@ -75,62 +62,39 @@ export class AuthController {
   ) {
     const { token, user } = await this.auth.login(dto.email, dto.password);
 
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: true, // ✅ true solo en producción
-      sameSite: 'none', // 'none' para producción
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
-    });
+    res.cookie('jwt', token, authCookieOptions());
 
-    const newUser = {
-      name: user.name,
-      email: user.email,
-      createdAt: user.createdAt,
+    return {
+      message: 'Login exitoso',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
     };
-
-    return { message: 'Login exitoso', newUser };
   }
+
+  // ─────────── EMAIL ───────────
 
   @Get('verify-email')
   async verifyEmail(
     @Query('token') token: string,
-    @Res({ passthrough: true }) res: express.Response,
+    @Res() res: express.Response,
   ) {
     if (!token) throw new BadRequestException('Token no proporcionado');
 
     const { jwt } = await this.auth.verifyEmail(token);
 
-    // const isProd = process.env.NODE_ENV === 'production';
-
-    res.cookie('jwt', jwt, {
-      httpOnly: true,
-      secure: true, // true en producción
-      sameSite: 'none', // 'none' para producción
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('jwt', jwt, authCookieOptions());
 
     return res.redirect(`${process.env.APP_URL}/home`);
   }
 
-  @Post('resend-verification')
-  async resendVerification(@Body('email') email: string) {
-    if (!email) throw new BadRequestException('El email es requerido');
-    return this.auth.resendVerification(email);
-  }
+  // ─────────── LOGOUT ───────────
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: express.Response) {
-    // const isProd = process.env.NODE_ENV === 'production';
-
-    res.clearCookie('jwt', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-    });
-
+    res.clearCookie('jwt', authCookieOptions());
     return { message: 'Logout exitoso' };
   }
 }
